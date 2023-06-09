@@ -1,7 +1,8 @@
 import { createServer, type ServerResponse } from 'http';
 import usersController from './controllers/usersController';
-import { bodyParser, isUser, errorChecker, isUUID } from './utils';
+import { bodyParser, isUser, errorChecker } from './utils';
 import type { IncomingMessageWithBody } from '~/types';
+import { isUuid } from 'uuidv4';
 
 const port = 3000;
 const host = 'localhost';
@@ -39,7 +40,7 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
         res.statusCode = 200;
         res.end(JSON.stringify(usersController.getAllUsers()));
       } else {
-        if (!isUUID(potentialID)) {
+        if (!isUuid(potentialID)) {
           res.statusCode = 400;
           throw Error(`${potentialID} is not valid UUID`);
         }

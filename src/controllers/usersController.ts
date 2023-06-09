@@ -1,5 +1,5 @@
 import type User from '~/models/user.js';
-import { randomUUID } from 'crypto';
+import { uuid } from 'uuidv4';
 
 class UserController {
   private users: User[];
@@ -31,7 +31,7 @@ class UserController {
   }
 
   createUser(user: Omit<User, 'id'>) {
-    const newUser = { ...user, id: randomUUID() };
+    const newUser = { ...user, id: uuid() };
     this.users.push(newUser);
     return newUser;
   }
