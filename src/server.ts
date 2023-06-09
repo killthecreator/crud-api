@@ -5,7 +5,7 @@ import type { IncomingMessageWithBody } from '~/types';
 import { validate } from 'uuid';
 import 'dotenv/config';
 
-const port = Number(process.env.PORT);
+const PORT = Number(process.env.PORT) || 4000;
 const endpoint = '/api/users';
 const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse) => {
   const { url, method } = req;
@@ -23,7 +23,7 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
           if (!req.body) throw Error('No request body was provided');
           if (!isUser(req.body))
             throw Error('Request body does not have required fields or it has unnecessary fields');
-          if (req.body.id) throw Error('You should not provide an ID to user');
+          if (req.body.id) throw Error('You should not provide an ID to use');
           res.statusCode = 201;
           res.end(JSON.stringify(usersController.createUser(req.body)));
         } catch (error) {
@@ -83,7 +83,9 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
   }
 };
 
-const server = createServer(requestListener);
-server.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
+export const server = createServer(requestListener);
+if (!process.env.MULTI) {
+  server.listen({ port: PORT, exclusive: true }, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}

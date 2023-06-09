@@ -4,7 +4,10 @@
   "description": "",
   "main": "server.ts",
   "scripts": {
-    "start:dev": "nodemon"
+    "start:dev": " nodemon ./src/server.ts ",
+    "start:prod": "tsc && node ./dist/src/server.js",
+    "start:multi": "cross-env MULTI=true nodemon ./src",
+    "test": "node --test --require ts-node/register ./test/users.test.ts ./test/user.test.ts"
   },
   "repository": {
     "type": "git",
@@ -21,6 +24,7 @@
     "@types/prettier": "^2.7.3",
     "@typescript-eslint/eslint-plugin": "^5.59.9",
     "@typescript-eslint/parser": "^5.59.9",
+    "cross-env": "^7.0.3",
     "eslint": "^8.42.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-import-resolver-typescript": "^3.5.5",
