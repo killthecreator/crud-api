@@ -1,5 +1,5 @@
 import type User from '~/models/user.js';
-import { uuid } from 'uuidv4';
+import { v4 as uuidv4 } from 'uuid';
 
 class UserController {
   private users: User[];
@@ -7,10 +7,10 @@ class UserController {
   constructor() {
     this.users = [
       {
-        username: 'Dleb',
-        age: 10,
+        username: 'leb',
+        age: 20,
         hobbies: [],
-        id: '97e02780-4fb2-4759-906a-da73cd10f787',
+        id: 'dae07956-d890-4bbb-b9a8-c07b3587d308',
       },
     ];
   }
@@ -31,7 +31,7 @@ class UserController {
   }
 
   createUser(user: Omit<User, 'id'>) {
-    const newUser = { ...user, id: uuid() };
+    const newUser = { ...user, id: uuidv4() };
     this.users.push(newUser);
     return newUser;
   }

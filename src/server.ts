@@ -2,7 +2,7 @@ import { createServer, type ServerResponse } from 'http';
 import usersController from './controllers/usersController';
 import { bodyParser, isUser, errorChecker } from './utils';
 import type { IncomingMessageWithBody } from '~/types';
-import { isUuid } from 'uuidv4';
+import { validate } from 'uuid';
 
 const port = 3000;
 const host = 'localhost';
@@ -11,6 +11,7 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
   const { url, method } = req;
 
   res.setHeader('Content-type', 'application/json');
+  res.statusCode = 404;
   if (url === endpoint) {
     switch (method) {
       case 'GET':
@@ -40,7 +41,7 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
         res.statusCode = 200;
         res.end(JSON.stringify(usersController.getAllUsers()));
       } else {
-        if (!isUuid(potentialID)) {
+        if (!validate(potentialID)) {
           res.statusCode = 400;
           throw Error(`${potentialID} is not valid UUID`);
         }
@@ -75,7 +76,6 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
       res.end(JSON.stringify(errorChecker(error)));
     }
   } else {
-    res.statusCode = 404;
     res.end(JSON.stringify({ error: 'Resource not found' }));
   }
 };
