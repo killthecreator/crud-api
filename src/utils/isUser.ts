@@ -1,4 +1,4 @@
-import type User from '~/models/user';
+import type { User } from '~/models';
 
 export const isUser = (arg: any): arg is User => {
   return arg &&

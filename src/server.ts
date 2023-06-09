@@ -3,13 +3,12 @@ import usersController from './controllers/usersController';
 import { bodyParser, isUser, errorChecker } from './utils';
 import type { IncomingMessageWithBody } from '~/types';
 import { validate } from 'uuid';
+import 'dotenv/config';
 
-const port = 3000;
-const host = 'localhost';
+const port = Number(process.env.PORT);
 const endpoint = '/api/users';
 const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse) => {
   const { url, method } = req;
-
   res.setHeader('Content-type', 'application/json');
   res.statusCode = 404;
   if (url === endpoint) {
@@ -32,6 +31,9 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
           res.end(JSON.stringify(errorChecker(error)));
         }
         break;
+      default:
+        res.statusCode = 500;
+        res.end(JSON.stringify({ error: 'There is no such operation for this endpoint' }));
     }
   } else if (url?.startsWith(`${endpoint}/`)) {
     try {
@@ -66,10 +68,11 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
           case 'DELETE':
             usersController.deleteUser(potentialID);
             res.statusCode = 204;
-            res.end(
-              JSON.stringify({ success: `User with ID ${potentialID} is successfully deleted` })
-            );
+            res.end();
             break;
+          default:
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'There is no such operation for this endpoint' }));
         }
       }
     } catch (error) {
@@ -81,6 +84,6 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
 };
 
 const server = createServer(requestListener);
-server.listen(port, host, () => {
-  console.log(`Server is running on http://${host}:${port}`);
+server.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
 });

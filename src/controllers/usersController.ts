@@ -1,18 +1,11 @@
-import type User from '~/models/user.js';
+import type { User } from '~/models';
 import { v4 as uuidv4 } from 'uuid';
 
 class UserController {
   private users: User[];
 
   constructor() {
-    this.users = [
-      {
-        username: 'leb',
-        age: 20,
-        hobbies: [],
-        id: 'dae07956-d890-4bbb-b9a8-c07b3587d308',
-      },
-    ];
+    this.users = [];
   }
 
   getAllUsers() {
@@ -41,8 +34,8 @@ class UserController {
     return this.users[userIndexById];
   }
   deleteUser(id: string) {
-    const userToDelete = this.getUserByID(id);
-    this.users = this.users.filter((user) => user === userToDelete);
+    const userIndexToDelete = this.getUserIndexById(id);
+    this.users = this.users.filter((user) => user !== this.users[userIndexToDelete]);
   }
 }
 
