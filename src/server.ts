@@ -1,18 +1,23 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'http';
-import usersController from './controllers/usersController';
+import 'dotenv/config';
+import { validate } from 'uuid';
+import { usersController } from './controllers';
 import { bodyParser, isUser, errorChecker, errors } from './utils';
 
-import { validate } from 'uuid';
-import 'dotenv/config';
-
-const PORT = Number(process.env.PORT) || 4000;
-const HOST = process.env.HOST ?? 'localhost';
+export const PORT = Number(process.env.PORT) ?? 4000;
+export const HOST = process.env.HOST ?? 'localhost';
 const endpoint = '/api/users';
 
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
   res.statusCode = 404;
+
+  const reqBodyCheck = (body: any) => {
+    if (!body) throw Error(errors.ERR_NO_REQUEST_BODY);
+    if (!isUser(body)) throw Error(errors.ERR_NO_REQUIRED_FIELDS);
+    if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
+  };
 
   if (url === endpoint) {
     switch (method) {
@@ -22,12 +27,10 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
         break;
       case 'POST':
         try {
-          const body = await bodyParser(req);
-          if (!body) throw Error(errors.ERR_NO_REQUEST_BODY);
-          if (!isUser(body)) throw Error(errors.ERR_NO_REQUIRED_FIELDS);
-          if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
+          const reqBody = await bodyParser(req);
+          reqBodyCheck(reqBody);
           res.statusCode = 201;
-          res.end(JSON.stringify(usersController.createUser(body)));
+          res.end(JSON.stringify(usersController.createUser(reqBody)));
         } catch (error) {
           res.statusCode = 400;
           res.end(JSON.stringify(errorChecker(error)));
@@ -56,11 +59,9 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
             res.end(JSON.stringify(user));
             break;
           case 'PUT':
-            const body = await bodyParser(req);
-            if (!body) throw Error(errors.ERR_NO_REQUEST_BODY);
-            if (!isUser(body)) throw Error(errors.ERR_NO_REQUIRED_FIELDS);
-            if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
-            const updatedUser = usersController.updateUser(body, potentialID);
+            const reqBody = await bodyParser(req);
+            reqBodyCheck(reqBody);
+            const updatedUser = usersController.updateUser(reqBody, potentialID);
             res.statusCode = 200;
             res.end(JSON.stringify(updatedUser));
             break;
