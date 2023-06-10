@@ -1,5 +1,6 @@
 import type { User } from '~/models';
 import { v4 as uuidv4 } from 'uuid';
+import { errors } from '~/utils';
 
 class UserController {
   private users: User[];
@@ -15,12 +16,12 @@ class UserController {
   getUserByID(id: string) {
     const user = this.users.find((user) => user.id === id);
     if (user) return user;
-    throw Error(`There is no user with ID ${id}`);
+    throw Error(errors.ERR_NO_USER_WITH_SUCH_ID(id));
   }
   getUserIndexById(id: string) {
     const userIndex = this.users.findIndex((user) => user.id === id);
     if (userIndex !== -1) return userIndex;
-    throw Error(`There is no user with ID ${id}`);
+    throw Error(errors.ERR_NO_USER_WITH_SUCH_ID(id));
   }
 
   createUser(user: Omit<User, 'id'>) {
