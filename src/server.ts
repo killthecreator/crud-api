@@ -5,12 +5,15 @@ import type { IncomingMessageWithBody } from '~/types';
 import { validate } from 'uuid';
 import 'dotenv/config';
 
-const PORT = Number(process.env.PORT) || 4000;
+const PORT = Number(process.env.DB_PORT) || 4000;
+const HOST = process.env.HOST ?? 'localhost';
 const endpoint = '/api/users';
+
 const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse) => {
   const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
   res.statusCode = 404;
+
   if (url === endpoint) {
     switch (method) {
       case 'GET':
@@ -85,7 +88,7 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
 
 export const server = createServer(requestListener);
 if (!process.env.MULTI) {
-  server.listen({ port: PORT, exclusive: true }, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+  server.listen(PORT, () => {
+    console.log(`Server is running on http://${HOST}:${PORT}`);
   });
 }
