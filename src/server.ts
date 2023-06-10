@@ -1,15 +1,15 @@
-import { createServer, type ServerResponse } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import usersController from './controllers/usersController';
-import { bodyParser, isUser, errorChecker } from './utils';
-import type { IncomingMessageWithBody } from '~/types';
+import { bodyParser, isUser, errorChecker, errors } from './utils';
+
 import { validate } from 'uuid';
 import 'dotenv/config';
 
-const PORT = Number(process.env.DB_PORT) || 4000;
+const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST ?? 'localhost';
 const endpoint = '/api/users';
 
-const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse) => {
+const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
   res.statusCode = 404;
@@ -22,13 +22,12 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
         break;
       case 'POST':
         try {
-          await bodyParser(req);
-          if (!req.body) throw Error('No request body was provided');
-          if (!isUser(req.body))
-            throw Error('Request body does not have required fields or it has unnecessary fields');
-          if (req.body.id) throw Error('You should not provide an ID to use');
+          const body = await bodyParser(req);
+          if (!body) throw Error(errors.ERR_NO_REQUEST_BODY);
+          if (!isUser(body)) throw Error(errors.ERR_NO_REQUIRED_FIELDS);
+          if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
           res.statusCode = 201;
-          res.end(JSON.stringify(usersController.createUser(req.body)));
+          res.end(JSON.stringify(usersController.createUser(body)));
         } catch (error) {
           res.statusCode = 400;
           res.end(JSON.stringify(errorChecker(error)));
@@ -36,7 +35,7 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
         break;
       default:
         res.statusCode = 500;
-        res.end(JSON.stringify({ error: 'There is no such operation for this endpoint' }));
+        res.end(JSON.stringify({ error: errors.ERR_NO_SUCH_OPERATION }));
     }
   } else if (url?.startsWith(`${endpoint}/`)) {
     try {
@@ -48,7 +47,7 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
       } else {
         if (!validate(potentialID)) {
           res.statusCode = 400;
-          throw Error(`${potentialID} is not valid UUID`);
+          throw Error(errors.ERR_NOT_VALID_UUID(potentialID));
         }
         switch (method) {
           case 'GET':
@@ -57,14 +56,11 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
             res.end(JSON.stringify(user));
             break;
           case 'PUT':
-            await bodyParser(req);
-            if (!req.body) throw Error('No request body was provided');
-            if (!isUser(req.body))
-              throw Error(
-                'Request body does not have required fields or it has unnecessary fields'
-              );
-            if (req.body.id) throw Error('You should not provide an ID to user');
-            const updatedUser = usersController.updateUser(req.body, potentialID);
+            const body = await bodyParser(req);
+            if (!body) throw Error(errors.ERR_NO_REQUEST_BODY);
+            if (!isUser(body)) throw Error(errors.ERR_NO_REQUIRED_FIELDS);
+            if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
+            const updatedUser = usersController.updateUser(body, potentialID);
             res.statusCode = 200;
             res.end(JSON.stringify(updatedUser));
             break;
@@ -75,14 +71,14 @@ const requestListener = async (req: IncomingMessageWithBody, res: ServerResponse
             break;
           default:
             res.statusCode = 500;
-            res.end(JSON.stringify({ error: 'There is no such operation for this endpoint' }));
+            res.end(JSON.stringify({ error: errors.ERR_NO_SUCH_OPERATION }));
         }
       }
     } catch (error) {
       res.end(JSON.stringify(errorChecker(error)));
     }
   } else {
-    res.end(JSON.stringify({ error: 'Resource not found' }));
+    res.end(JSON.stringify({ error: errors.ERR_NOT_FOUND }));
   }
 };
 

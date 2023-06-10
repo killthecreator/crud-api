@@ -1,16 +1,7 @@
-import type { IncomingMessageWithBody } from '~/types';
+import type { IncomingMessage } from 'http';
 
-export const bodyParser = async (req: IncomingMessageWithBody) =>
-  new Promise((resolve, reject) => {
-    let body = '';
-    req
-      .on('error', (err) => {
-        console.error(err);
-        reject();
-      })
-      .on('data', (chunk) => (body += chunk))
-      .on('end', () => {
-        req.body = JSON.parse(body);
-        resolve(req.body);
-      });
-  });
+export const bodyParser = async (req: IncomingMessage) => {
+  const body = [];
+  for await (const chunk of req) body.push(chunk);
+  return JSON.parse(Buffer.concat(body).toString());
+};

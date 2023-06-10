@@ -1,10 +1,9 @@
 import cluster from 'cluster';
 import { cpus } from 'os';
 import { server } from './server';
-import type { IncomingMessageWithBody } from './types';
-import type { ServerResponse } from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
 import { request, createServer } from 'http';
-//import { bodyParser } from './utils';
+import { bodyParser } from './utils';
 
 const numCPUs = cpus().length;
 
@@ -14,8 +13,8 @@ const servers = new Array(numCPUs).fill(0).map((_item, index) => PORT + index + 
 
 let currentServer = 0;
 
-const handler = async (req: IncomingMessageWithBody, res: ServerResponse) => {
-  const { method, url, headers, body } = req;
+const handler = async (req: IncomingMessage, res: ServerResponse) => {
+  const { method, url, headers } = req;
   const server = servers[currentServer];
   currentServer === servers.length - 1 ? (currentServer = 0) : currentServer++;
   const options = {
@@ -24,19 +23,11 @@ const handler = async (req: IncomingMessageWithBody, res: ServerResponse) => {
     path: url,
     headers,
     method,
-    body,
   };
 
-  const reqToWorker = request(options, async (res2: IncomingMessageWithBody) => {
-    //await bodyParser(res2);
-    console.log(res2.body);
-    let body = '';
-    res2.on('data', (chunk) => {
-      body += chunk;
-    });
-    res2.on('end', () => {
-      res.end(JSON.stringify(JSON.parse(body)));
-    });
+  const reqToWorker = request(options, async (res2: IncomingMessage) => {
+    const body = await bodyParser(res2);
+    res.end(JSON.stringify(body));
   });
 
   reqToWorker.end();
