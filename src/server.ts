@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { validate } from 'uuid';
 import { usersController } from './controllers';
 import { bodyParser, reqBodyCheck, errorChecker, errors, statusCodes } from './utils';
-import { dbReqOptions } from './db';
+import { dbReqOptions, DB_PORT, dbServer } from './db';
 
 export const PORT = Number(process.env.PORT) ?? 4000;
 export const HOST = process.env.HOST ?? 'localhost';
@@ -80,6 +80,9 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
 
 export const server = createServer(requestListener);
 if (!process.env.MULTI) {
+  dbServer.listen(DB_PORT, () => {
+    console.log(`DB is running`);
+  });
   server.listen(PORT, () => {
     console.log(`Server is running on http://${HOST}:${PORT}`);
   });
