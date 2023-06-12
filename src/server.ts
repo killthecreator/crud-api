@@ -11,42 +11,42 @@ const endpoint = '/api/users';
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
-  res.statusCode = statusCodes.NOT_FOUND;
 
   const reqBodyCheck = (body: any) => {
-    if (!body) throw Error(errors.ERR_NO_REQUEST_BODY);
-    if (!isUser(body)) throw Error(errors.ERR_NO_REQUIRED_FIELDS);
-    if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
+    if (!isUser(body) || body.id) {
+      res.statusCode = statusCodes.BAD_REQUEST;
+      if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
+      else throw Error(errors.ERR_NO_REQUIRED_FIELDS);
+    }
   };
+  res.statusCode = statusCodes.NOT_FOUND;
+  let resBody: any = undefined;
 
-  if (url === endpoint) {
-    switch (method) {
-      case 'GET':
-        res.statusCode = statusCodes.OK;
-        res.end(JSON.stringify(usersController.getAllUsers()));
-        break;
-      case 'POST':
-        try {
+  try {
+    if (url === endpoint) {
+      switch (method) {
+        case 'GET':
+          res.statusCode = statusCodes.OK;
+          res.end(JSON.stringify(usersController.getAllUsers()));
+          break;
+        case 'POST':
           const reqBody = await bodyParser(req);
           reqBodyCheck(reqBody);
           res.statusCode = statusCodes.CREATED;
-          res.end(JSON.stringify(usersController.createUser(reqBody)));
-        } catch (error) {
-          res.statusCode = statusCodes.BAD_REQUEST;
-          res.end(JSON.stringify(errorChecker(error)));
-        }
-        break;
-      default:
-        res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
-        res.end(JSON.stringify({ error: errors.ERR_NO_SUCH_OPERATION }));
-    }
-  } else if (url?.startsWith(`${endpoint}/`)) {
-    try {
+          resBody = JSON.stringify(usersController.createUser(reqBody));
+          break;
+        default:
+          res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
+          throw Error(errors.ERR_NO_SUCH_OPERATION);
+      }
+    } else if (url?.startsWith(`${endpoint}/`)) {
       const splitUrl = url.split('/');
       const potentialID = splitUrl.at(-1);
+      /*  */
       if (!potentialID) {
         res.statusCode = statusCodes.OK;
-        res.end(JSON.stringify(usersController.getAllUsers()));
+        resBody = JSON.stringify(usersController.getAllUsers());
+        /*  */
       } else {
         if (!validate(potentialID)) {
           res.statusCode = statusCodes.BAD_REQUEST;
@@ -56,30 +56,31 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           case 'GET':
             const user = usersController.getUserByID(potentialID);
             res.statusCode = statusCodes.OK;
-            res.end(JSON.stringify(user));
+            resBody = JSON.stringify(user);
             break;
           case 'PUT':
             const reqBody = await bodyParser(req);
             reqBodyCheck(reqBody);
             const updatedUser = usersController.updateUser(reqBody, potentialID);
             res.statusCode = statusCodes.OK;
-            res.end(JSON.stringify(updatedUser));
+            resBody = JSON.stringify(updatedUser);
             break;
           case 'DELETE':
             usersController.deleteUser(potentialID);
             res.statusCode = statusCodes.NO_CONTENT;
-            res.end();
             break;
           default:
             res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
-            res.end(JSON.stringify({ error: errors.ERR_NO_SUCH_OPERATION }));
+            throw Error(errors.ERR_NO_SUCH_OPERATION);
         }
       }
-    } catch (error) {
-      res.end(JSON.stringify(errorChecker(error)));
+    } else {
+      throw Error(errors.ERR_NOT_FOUND);
     }
-  } else {
-    res.end(JSON.stringify({ error: errors.ERR_NOT_FOUND }));
+  } catch (error) {
+    resBody = JSON.stringify(errorChecker(error));
+  } finally {
+    res.end(resBody);
   }
 };
 
