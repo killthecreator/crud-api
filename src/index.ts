@@ -6,17 +6,17 @@ import { bodyParser } from './utils';
 
 const numCPUs = cpus().length;
 
-const servers = new Array(numCPUs).fill(0).map((_item, index) => PORT + index + 1);
+const serverPorts = new Array(numCPUs).fill(0).map((_item, index) => PORT + index + 1);
 
-let currentServer = 0;
+let curServerPortIndex = 0;
 const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
   const { method, url, headers } = req;
-  const server = servers[currentServer];
-  currentServer === servers.length - 1 ? (currentServer = 0) : currentServer++;
+  const curServerPort = serverPorts[curServerPortIndex];
+  curServerPortIndex === serverPorts.length - 1 ? (curServerPortIndex = 0) : curServerPortIndex++;
 
   const options = {
     hostname: HOST,
-    port: server,
+    port: curServerPort,
     path: url,
     headers,
     method,
@@ -37,7 +37,7 @@ if (cluster.isPrimary) {
     console.log(`Load ballancer is running on http://${HOST}:${PORT}`);
   });
 
-  for (let i = 0; i < numCPUs; i++) cluster.fork({ PORT: servers[i] });
+  serverPorts.forEach((serverPort) => cluster.fork({ PORT: serverPort }));
 
   cluster.on('exit', (worker) => console.log(`Worker ${worker.process.pid} died`));
 } else {

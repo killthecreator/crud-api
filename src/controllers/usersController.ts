@@ -1,6 +1,6 @@
 import type { User } from '~/models';
 import { v4 as uuidv4 } from 'uuid';
-import { errors } from '~/utils';
+import { errors } from './../utils';
 
 class UserController {
   private users: User[];
