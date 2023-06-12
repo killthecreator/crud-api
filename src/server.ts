@@ -11,6 +11,8 @@ const endpoint = '/api/users';
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
+  let trimmedUrl = url ?? '';
+  while (trimmedUrl.at(-1) === '/') trimmedUrl = trimmedUrl.slice(0, -1);
 
   const reqBodyCheck = (body: any) => {
     if (!isUser(body) || body.id) {
@@ -23,7 +25,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   let resBody: any = undefined;
 
   try {
-    if (url === endpoint) {
+    if (trimmedUrl === endpoint) {
       switch (method) {
         case 'GET':
           res.statusCode = statusCodes.OK;
@@ -39,40 +41,32 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
           throw Error(errors.ERR_NO_SUCH_OPERATION);
       }
-    } else if (url?.startsWith(`${endpoint}/`)) {
-      const splitUrl = url.split('/');
-      const potentialID = splitUrl.at(-1);
-      /*  */
-      if (!potentialID) {
-        res.statusCode = statusCodes.OK;
-        resBody = JSON.stringify(usersController.getAllUsers());
-        /*  */
-      } else {
-        if (!validate(potentialID)) {
-          res.statusCode = statusCodes.BAD_REQUEST;
-          throw Error(errors.ERR_NOT_VALID_UUID(potentialID));
-        }
-        switch (method) {
-          case 'GET':
-            const user = usersController.getUserByID(potentialID);
-            res.statusCode = statusCodes.OK;
-            resBody = JSON.stringify(user);
-            break;
-          case 'PUT':
-            const reqBody = await bodyParser(req);
-            reqBodyCheck(reqBody);
-            const updatedUser = usersController.updateUser(reqBody, potentialID);
-            res.statusCode = statusCodes.OK;
-            resBody = JSON.stringify(updatedUser);
-            break;
-          case 'DELETE':
-            usersController.deleteUser(potentialID);
-            res.statusCode = statusCodes.NO_CONTENT;
-            break;
-          default:
-            res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
-            throw Error(errors.ERR_NO_SUCH_OPERATION);
-        }
+    } else if (trimmedUrl.startsWith(`${endpoint}/`)) {
+      const potentialID = trimmedUrl.replace(endpoint + '/', '');
+      if (!validate(potentialID)) {
+        res.statusCode = statusCodes.BAD_REQUEST;
+        throw Error(errors.ERR_NOT_VALID_UUID(potentialID));
+      }
+      switch (method) {
+        case 'GET':
+          const user = usersController.getUserByID(potentialID);
+          res.statusCode = statusCodes.OK;
+          resBody = JSON.stringify(user);
+          break;
+        case 'PUT':
+          const reqBody = await bodyParser(req);
+          reqBodyCheck(reqBody);
+          const updatedUser = usersController.updateUser(reqBody, potentialID);
+          res.statusCode = statusCodes.OK;
+          resBody = JSON.stringify(updatedUser);
+          break;
+        case 'DELETE':
+          usersController.deleteUser(potentialID);
+          res.statusCode = statusCodes.NO_CONTENT;
+          break;
+        default:
+          res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
+          throw Error(errors.ERR_NO_SUCH_OPERATION);
       }
     } else {
       throw Error(errors.ERR_NOT_FOUND);
