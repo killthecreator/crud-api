@@ -1,16 +1,21 @@
 import type { User } from '~/models';
 import { v4 as uuidv4 } from 'uuid';
 import { errors } from './../utils';
+import { usersDb } from './../db/usersDb';
 
 class UserController {
   private users: User[];
 
-  constructor() {
-    this.users = [];
+  constructor(users: User[]) {
+    this.users = users;
   }
 
-  getAllUsers() {
+  get allUsers() {
     return this.users;
+  }
+
+  set allUsers(users: User[]) {
+    this.users = users;
   }
 
   getUserByID(id: string) {
@@ -40,4 +45,4 @@ class UserController {
   }
 }
 
-export const usersController = new UserController();
+export const usersController = new UserController(usersDb);

@@ -1,8 +1,9 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse, request } from 'http';
 import 'dotenv/config';
 import { validate } from 'uuid';
 import { usersController } from './controllers';
-import { bodyParser, isUser, errorChecker, errors, statusCodes } from './utils';
+import { bodyParser, reqBodyCheck, errorChecker, errors, statusCodes } from './utils';
+import { dbReqOptions } from './db';
 
 export const PORT = Number(process.env.PORT) ?? 4000;
 export const HOST = process.env.HOST ?? 'localhost';
@@ -10,31 +11,28 @@ const endpoint = '/api/users';
 
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
-  res.setHeader('Content-type', 'application/json');
+
+  const reqToDb = request(dbReqOptions('GET'), async (resFromDb: IncomingMessage) => {
+    const data = await bodyParser(resFromDb);
+    usersController.allUsers = data;
+  });
+
   let trimmedUrl = url ?? '';
   while (trimmedUrl.at(-1) === '/') trimmedUrl = trimmedUrl.slice(0, -1);
 
-  const reqBodyCheck = (body: any) => {
-    if (!isUser(body) || body.id) {
-      res.statusCode = statusCodes.BAD_REQUEST;
-      if (body.id) throw Error(errors.ERR_SHOULD_NOT_PROVIDE_ID);
-      else throw Error(errors.ERR_NO_REQUIRED_FIELDS);
-    }
-  };
+  res.setHeader('Content-type', 'application/json');
   res.statusCode = statusCodes.NOT_FOUND;
-  let resBody: any = undefined;
+  let resBody: string | undefined = undefined;
 
   try {
     if (trimmedUrl === endpoint) {
       switch (method) {
         case 'GET':
           res.statusCode = statusCodes.OK;
-          res.end(JSON.stringify(usersController.getAllUsers()));
+          res.end(JSON.stringify(usersController.allUsers));
           break;
         case 'POST':
           const reqBody = await bodyParser(req);
-          reqBodyCheck(reqBody);
-          res.statusCode = statusCodes.CREATED;
           resBody = JSON.stringify(usersController.createUser(reqBody));
           break;
         default:
@@ -55,7 +53,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           break;
         case 'PUT':
           const reqBody = await bodyParser(req);
-          reqBodyCheck(reqBody);
+          reqBodyCheck(res, reqBody);
           const updatedUser = usersController.updateUser(reqBody, potentialID);
           res.statusCode = statusCodes.OK;
           resBody = JSON.stringify(updatedUser);
@@ -71,9 +69,11 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
     } else {
       throw Error(errors.ERR_NOT_FOUND);
     }
+    if (process.send) process.send(usersController.allUsers);
   } catch (error) {
     resBody = JSON.stringify(errorChecker(error));
   } finally {
+    reqToDb.end();
     res.end(resBody);
   }
 };
