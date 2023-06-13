@@ -1,16 +1,10 @@
 import cluster from 'cluster';
 import { cpus } from 'os';
-import {
-  type IncomingMessage,
-  type ServerResponse,
-  type RequestOptions,
-  request,
-  createServer,
-} from 'http';
+import { type IncomingMessage, type ServerResponse, type RequestOptions, createServer } from 'http';
 import { server, HOST, PORT } from './server';
 import { bodyParser } from './utils';
 import { dbServer, DB_PORT, dbReqOptions } from './db';
-import { statusCodes } from './utils';
+import { doRequest } from './utils';
 
 const numCPUs = cpus().length;
 
@@ -32,23 +26,15 @@ const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
   };
 
   const reqBody = await bodyParser(req);
+  const workerResponse = await bodyParser(await doRequest(options, reqBody));
 
-  const reqToWorker = request(options, async (resFromWorker: IncomingMessage) => {
-    const resBody = await bodyParser(resFromWorker);
-    res.statusCode = resFromWorker.statusCode ?? statusCodes.INTERNAL_SERVER_ERR;
-    res.end(JSON.stringify(resBody));
-  });
-
-  reqToWorker.write(JSON.stringify(reqBody));
-  reqToWorker.end();
+  res.end(JSON.stringify(workerResponse));
 };
 
 if (cluster.isPrimary) {
   console.log(`Primary ${process.pid} is running`);
 
-  dbServer.listen(DB_PORT, () => {
-    console.log(`DB is running`);
-  });
+  dbServer.listen(DB_PORT);
 
   createServer(reqHandler).listen(PORT, () => {
     console.log(`Load ballancer is running on http://${HOST}:${PORT}`);
@@ -56,10 +42,8 @@ if (cluster.isPrimary) {
 
   serverPorts.forEach((serverPort) => {
     const child = cluster.fork({ PORT: serverPort });
-    child.on('message', (message) => {
-      const reqToDb = request(dbReqOptions('POST'));
-      reqToDb.write(JSON.stringify(message));
-      reqToDb.end();
+    child.on('message', async (message) => {
+      await doRequest(dbReqOptions('POST'), JSON.stringify(message));
     });
   });
 

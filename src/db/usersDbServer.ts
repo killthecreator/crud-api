@@ -11,7 +11,6 @@ export const dbServer = createServer(async (req: IncomingMessage, res: ServerRes
       const users = usersController.allUsers;
       res.statusCode = statusCodes.OK;
       res.end(JSON.stringify(users));
-
       break;
     case 'POST':
       const reqBody = await bodyParser(req);

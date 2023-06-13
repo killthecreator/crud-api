@@ -1,8 +1,8 @@
-import { createServer, type IncomingMessage, type ServerResponse, request } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import 'dotenv/config';
 import { validate } from 'uuid';
 import { usersController } from './controllers';
-import { bodyParser, reqBodyCheck, errorChecker, errors, statusCodes } from './utils';
+import { bodyParser, reqBodyCheck, errorChecker, errors, statusCodes, doRequest } from './utils';
 import { dbReqOptions, DB_PORT, dbServer } from './db';
 
 export const PORT = Number(process.env.PORT) ?? 4000;
@@ -12,10 +12,8 @@ const endpoint = '/api/users';
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
 
-  const reqToDb = request(dbReqOptions('GET'), async (resFromDb: IncomingMessage) => {
-    const data = await bodyParser(resFromDb);
-    usersController.allUsers = data;
-  });
+  const curDbData = await bodyParser(await doRequest(dbReqOptions('GET')));
+  usersController.allUsers = curDbData;
 
   let trimmedUrl = url ?? '';
   while (trimmedUrl.at(-1) === '/') trimmedUrl = trimmedUrl.slice(0, -1);
@@ -32,7 +30,9 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           res.end(JSON.stringify(usersController.allUsers));
           break;
         case 'POST':
+          req.on('data', (chunk) => console.log(chunk));
           const reqBody = await bodyParser(req);
+
           resBody = JSON.stringify(usersController.createUser(reqBody));
           break;
         default:
@@ -73,16 +73,13 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   } catch (error) {
     resBody = JSON.stringify(errorChecker(error));
   } finally {
-    reqToDb.end();
     res.end(resBody);
   }
 };
 
 export const server = createServer(requestListener);
 if (!process.env.MULTI) {
-  dbServer.listen(DB_PORT, () => {
-    console.log(`DB is running`);
-  });
+  dbServer.listen(DB_PORT);
   server.listen(PORT, () => {
     console.log(`Server is running on http://${HOST}:${PORT}`);
   });
