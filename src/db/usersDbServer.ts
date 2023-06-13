@@ -1,33 +1,35 @@
 import { usersController } from './../controllers';
 import { type IncomingMessage, type ServerResponse, type RequestOptions, createServer } from 'http';
-import { statusCodes, bodyParser, isUser, errors } from './../utils';
+import { statusCodes, bodyParser, isUser, errors, errorChecker } from './../utils';
 import { HOST } from './../server';
 import type { User } from '~/models';
 
 export const DB_PORT = Number(process.env.DB_PORT) ?? 3000;
 
 export const dbServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  let resBody: string | undefined = undefined;
   try {
     switch (req.method) {
       case 'GET':
         const users = usersController.allUsers;
-
         res.statusCode = statusCodes.OK;
-        res.end(JSON.stringify(users));
+        resBody = JSON.stringify(users);
         break;
       case 'POST':
         const reqBody = await bodyParser(req);
         if (reqBody.length !== 0 && !reqBody.every((item: User) => isUser(item))) {
-          throw Error();
+          throw Error(errors.ERR_DB_ERROR);
         }
         res.statusCode = statusCodes.CREATED;
         usersController.allUsers = reqBody;
         res.end();
         break;
     }
-  } catch {
-    res.statusCode = statusCodes.BAD_REQUEST;
-    res.end(JSON.stringify({ error: errors.ERR_NO_REQUIRED_FIELDS }));
+  } catch (error) {
+    res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
+    resBody = JSON.stringify(errorChecker(error));
+  } finally {
+    res.end(resBody);
   }
 });
 
