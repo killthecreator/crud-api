@@ -20,6 +20,7 @@ after the request is handled and response is back on main thread it updates the 
 1. Clone the repository to your machine;
 2. Go to `crud-api` branch via running `git checkout crud-api`;
 3. Run `npm install` to install all the packages;
+4. Rename `.env.example` file to `.env`.
 
 # Running the application
 
