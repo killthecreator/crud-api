@@ -7,13 +7,15 @@ import { dbReqOptions, DB_PORT, dbServer } from './db';
 
 export const PORT = Number(process.env.PORT) ?? 4000;
 export const HOST = process.env.HOST ?? 'localhost';
-const endpoint = '/api/users';
+export const endpoint = '/api/users';
 
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
 
-  const curDbData = await bodyParser(await doRequest(dbReqOptions('GET')));
-  usersController.allUsers = curDbData;
+  if (process.env.MULTI) {
+    const curDbData = await bodyParser(await doRequest(dbReqOptions('GET')));
+    usersController.allUsers = curDbData;
+  }
 
   let trimmedUrl = url ?? '';
   while (trimmedUrl.at(-1) === '/') trimmedUrl = trimmedUrl.slice(0, -1);
@@ -67,7 +69,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
     } else {
       throw Error(errors.ERR_NOT_FOUND);
     }
-    if (process.send) process.send(usersController.allUsers);
+    if (process.send && process.env.MULTI) process.send(usersController.allUsers);
   } catch (error) {
     resBody = JSON.stringify(errorChecker(error));
   } finally {
@@ -76,7 +78,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
 };
 
 export const server = createServer(requestListener);
-if (!process.env.MULTI) {
+if (!process.env.MULTI && !process.env.TEST) {
   dbServer.listen(DB_PORT);
   server.listen(PORT, () => {
     console.log(`Server is running on http://${HOST}:${PORT}`);
