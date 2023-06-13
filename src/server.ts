@@ -30,9 +30,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           res.end(JSON.stringify(usersController.allUsers));
           break;
         case 'POST':
-          req.on('data', (chunk) => console.log(chunk));
           const reqBody = await bodyParser(req);
-
           resBody = JSON.stringify(usersController.createUser(reqBody));
           break;
         default:

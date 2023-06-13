@@ -13,15 +13,19 @@ const serverPorts = new Array(numCPUs).fill(0).map((_item, index) => PORT + inde
 let curServerPortIndex = 0;
 
 const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
-  const { url, method, headers } = req;
   const curServerPort = serverPorts[curServerPortIndex];
   curServerPortIndex === serverPorts.length - 1 ? (curServerPortIndex = 0) : curServerPortIndex++;
+
+  const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
+
   const options: RequestOptions = {
     hostname: HOST,
     port: curServerPort,
     path: url,
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
     method,
   };
 
@@ -43,7 +47,7 @@ if (cluster.isPrimary) {
   serverPorts.forEach((serverPort) => {
     const child = cluster.fork({ PORT: serverPort });
     child.on('message', async (message) => {
-      await doRequest(dbReqOptions('POST'), JSON.stringify(message));
+      await doRequest(dbReqOptions('POST'), message);
     });
   });
 
