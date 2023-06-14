@@ -33,6 +33,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           res.end(JSON.stringify(usersController.allUsers));
           break;
         case 'POST':
+          console.log(req.headers['content-length']);
           const reqBody = await bodyParser(req);
           reqBodyCheck(res, reqBody);
           res.statusCode = statusCodes.CREATED;
