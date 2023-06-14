@@ -13,15 +13,16 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
 
   if (process.env.MULTI) {
-    const curDbData = await bodyParser(await doRequest(dbReqOptions('GET')));
-    usersController.allUsers = curDbData;
+    const responseFromDb = await doRequest(dbReqOptions('GET'));
+    const parsedResponse = await bodyParser(responseFromDb);
+    usersController.allUsers = parsedResponse;
   }
 
   let trimmedUrl = url ?? '';
   while (trimmedUrl.at(-1) === '/') trimmedUrl = trimmedUrl.slice(0, -1);
 
   res.setHeader('Content-type', 'application/json');
-  res.statusCode = statusCodes.NOT_FOUND;
+  res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
   let resBody: string | undefined = undefined;
 
   try {
@@ -34,6 +35,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
         case 'POST':
           const reqBody = await bodyParser(req);
           reqBodyCheck(res, reqBody);
+          res.statusCode = statusCodes.CREATED;
           resBody = JSON.stringify(usersController.createUser(reqBody));
           break;
         default:
@@ -48,26 +50,42 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
       }
       switch (method) {
         case 'GET':
-          const user = usersController.getUserByID(potentialID);
-          res.statusCode = statusCodes.OK;
-          resBody = JSON.stringify(user);
+          try {
+            const user = usersController.getUserByID(potentialID);
+            res.statusCode = statusCodes.OK;
+            resBody = JSON.stringify(user);
+          } catch (e) {
+            res.statusCode = statusCodes.NOT_FOUND;
+            throw e;
+          }
           break;
         case 'PUT':
           const reqBody = await bodyParser(req);
           reqBodyCheck(res, reqBody);
-          const updatedUser = usersController.updateUser(reqBody, potentialID);
-          res.statusCode = statusCodes.OK;
-          resBody = JSON.stringify(updatedUser);
+          try {
+            const updatedUser = usersController.updateUser(reqBody, potentialID);
+            res.statusCode = statusCodes.OK;
+            resBody = JSON.stringify(updatedUser);
+          } catch (e) {
+            res.statusCode = statusCodes.NOT_FOUND;
+            throw e;
+          }
           break;
         case 'DELETE':
-          usersController.deleteUser(potentialID);
-          res.statusCode = statusCodes.NO_CONTENT;
+          try {
+            usersController.deleteUser(potentialID);
+            res.statusCode = statusCodes.NO_CONTENT;
+          } catch (e) {
+            res.statusCode = statusCodes.NOT_FOUND;
+            throw e;
+          }
           break;
         default:
           res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
           throw Error(errors.ERR_NO_SUCH_OPERATION);
       }
     } else {
+      res.statusCode = statusCodes.NOT_FOUND;
       throw Error(errors.ERR_NOT_FOUND);
     }
     if (process.send && process.env.MULTI) process.send(usersController.allUsers);

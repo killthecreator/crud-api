@@ -31,8 +31,10 @@ const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
   let resBody: string | undefined = undefined;
   try {
     const reqBody = await bodyParser(req);
-    const workerResponse = await bodyParser(await doRequest(options, reqBody));
-    resBody = JSON.stringify(workerResponse);
+    const responseFromWorker = await doRequest(options, reqBody);
+    const parsedResponse = await bodyParser(responseFromWorker);
+    if (responseFromWorker.statusCode) res.statusCode = responseFromWorker.statusCode;
+    resBody = JSON.stringify(parsedResponse);
   } catch (error) {
     res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
     resBody = JSON.stringify(errorChecker(error));
