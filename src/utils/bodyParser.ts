@@ -1,4 +1,5 @@
 import type { IncomingMessage } from 'http';
+import { errors } from '.';
 
 export const bodyParser = async (req: IncomingMessage) => {
   try {
@@ -6,6 +7,6 @@ export const bodyParser = async (req: IncomingMessage) => {
     for await (const chunk of req) body.push(chunk);
     return JSON.parse(Buffer.concat(body).toString());
   } catch {
-    return null;
+    throw Error(errors.ERR_INCORRECT_REQ_BODY);
   }
 };

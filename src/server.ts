@@ -33,6 +33,7 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           break;
         case 'POST':
           const reqBody = await bodyParser(req);
+          reqBodyCheck(res, reqBody);
           resBody = JSON.stringify(usersController.createUser(reqBody));
           break;
         default:

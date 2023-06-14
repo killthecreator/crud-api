@@ -2,9 +2,8 @@ import cluster from 'cluster';
 import { cpus } from 'os';
 import { type IncomingMessage, type ServerResponse, type RequestOptions, createServer } from 'http';
 import { server, HOST, PORT } from './server';
-import { bodyParser } from './utils';
 import { dbServer, DB_PORT, dbReqOptions } from './db';
-import { doRequest } from './utils';
+import { doRequest, errorChecker, bodyParser, statusCodes } from './utils';
 
 const numCPUs = cpus().length;
 
@@ -29,10 +28,17 @@ const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
     method,
   };
 
-  const reqBody = await bodyParser(req);
-  const workerResponse = await bodyParser(await doRequest(options, reqBody));
-
-  res.end(JSON.stringify(workerResponse));
+  let resBody: string | undefined = undefined;
+  try {
+    const reqBody = await bodyParser(req);
+    const workerResponse = await bodyParser(await doRequest(options, reqBody));
+    resBody = JSON.stringify(workerResponse);
+  } catch (error) {
+    res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
+    resBody = JSON.stringify(errorChecker(error));
+  } finally {
+    res.end(resBody);
+  }
 };
 
 if (cluster.isPrimary) {
