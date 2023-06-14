@@ -9,6 +9,10 @@ export const PORT = Number(process.env.PORT) ?? 4000;
 export const HOST = process.env.HOST ?? 'localhost';
 export const endpoint = '/api/users';
 
+process.on('SIGINT', () => {
+  setImmediate(() => process.exit(0));
+});
+
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
 
