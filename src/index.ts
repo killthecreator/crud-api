@@ -9,11 +9,11 @@ const numCPUs = availableParallelism();
 
 const workerPorts = new Array(numCPUs - 1).fill(0).map((_item, index) => PORT + index + 1);
 
-let curServerPortIndex = 0;
+let curWorkerPortIndex = 0;
 
 const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
-  const curWorkerPort = workerPorts[curServerPortIndex];
-  curServerPortIndex === workerPorts.length - 1 ? (curServerPortIndex = 0) : curServerPortIndex++;
+  const curWorkerPort = workerPorts[curWorkerPortIndex];
+  curWorkerPortIndex === workerPorts.length - 1 ? (curWorkerPortIndex = 0) : curWorkerPortIndex++;
 
   const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
