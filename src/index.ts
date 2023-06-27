@@ -1,26 +1,26 @@
 import cluster from 'cluster';
-import { cpus } from 'os';
+import { availableParallelism } from 'os';
 import { type IncomingMessage, type ServerResponse, type RequestOptions, createServer } from 'http';
 import { server, HOST, PORT } from './server';
 import { dbServer, DB_PORT, dbReqOptions } from './db';
 import { doRequest, errorChecker, bodyParser, statusCodes } from './utils';
 
-const numCPUs = cpus().length;
+const numCPUs = availableParallelism();
 
-const serverPorts = new Array(numCPUs).fill(0).map((_item, index) => PORT + index + 1);
+const workerPorts = new Array(numCPUs - 1).fill(0).map((_item, index) => PORT + index + 1);
 
 let curServerPortIndex = 0;
 
 const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
-  const curServerPort = serverPorts[curServerPortIndex];
-  curServerPortIndex === serverPorts.length - 1 ? (curServerPortIndex = 0) : curServerPortIndex++;
+  const curWorkerPort = workerPorts[curServerPortIndex];
+  curServerPortIndex === workerPorts.length - 1 ? (curServerPortIndex = 0) : curServerPortIndex++;
 
   const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
 
   const options: RequestOptions = {
     hostname: HOST,
-    port: curServerPort,
+    port: curWorkerPort,
     path: url,
     headers: {
       'Content-Type': 'application/json',
@@ -52,8 +52,8 @@ if (cluster.isPrimary) {
     console.log(`Load ballancer is running on http://${HOST}:${PORT}`);
   });
 
-  serverPorts.forEach((serverPort) => {
-    const child = cluster.fork({ PORT: serverPort });
+  workerPorts.forEach((workerPort) => {
+    const child = cluster.fork({ PORT: workerPort });
     child.on('message', async (message) => {
       await doRequest(dbReqOptions('POST'), message);
     });
