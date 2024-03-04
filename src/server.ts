@@ -1,27 +1,32 @@
-import { createServer, type IncomingMessage, type ServerResponse, request } from 'http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'http';
 import 'dotenv/config';
 import { validate } from 'uuid';
 import { usersController } from './controllers';
-import { bodyParser, reqBodyCheck, errorChecker, errors, statusCodes } from './utils';
+import { bodyParser, reqBodyCheck, errorChecker, errors, statusCodes, doRequest } from './utils';
 import { dbReqOptions, DB_PORT, dbServer } from './db';
 
 export const PORT = Number(process.env.PORT) ?? 4000;
 export const HOST = process.env.HOST ?? 'localhost';
-const endpoint = '/api/users';
+export const endpoint = '/api/users';
+
+process.on('SIGINT', () => {
+  setImmediate(() => process.exit(0));
+});
 
 const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
   const { url, method } = req;
 
-  const reqToDb = request(dbReqOptions('GET'), async (resFromDb: IncomingMessage) => {
-    const data = await bodyParser(resFromDb);
-    usersController.allUsers = data;
-  });
+  if (process.env.MULTI) {
+    const responseFromDb = await doRequest(dbReqOptions('GET'));
+    const parsedResponse = await bodyParser(responseFromDb);
+    usersController.allUsers = parsedResponse;
+  }
 
   let trimmedUrl = url ?? '';
   while (trimmedUrl.at(-1) === '/') trimmedUrl = trimmedUrl.slice(0, -1);
 
   res.setHeader('Content-type', 'application/json');
-  res.statusCode = statusCodes.NOT_FOUND;
+  res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
   let resBody: string | undefined = undefined;
 
   try {
@@ -32,7 +37,10 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
           res.end(JSON.stringify(usersController.allUsers));
           break;
         case 'POST':
+          console.log(req.headers['content-length']);
           const reqBody = await bodyParser(req);
+          reqBodyCheck(res, reqBody);
+          res.statusCode = statusCodes.CREATED;
           resBody = JSON.stringify(usersController.createUser(reqBody));
           break;
         default:
@@ -47,42 +55,55 @@ const requestListener = async (req: IncomingMessage, res: ServerResponse) => {
       }
       switch (method) {
         case 'GET':
-          const user = usersController.getUserByID(potentialID);
-          res.statusCode = statusCodes.OK;
-          resBody = JSON.stringify(user);
+          try {
+            const user = usersController.getUserByID(potentialID);
+            res.statusCode = statusCodes.OK;
+            resBody = JSON.stringify(user);
+          } catch (e) {
+            res.statusCode = statusCodes.NOT_FOUND;
+            throw e;
+          }
           break;
         case 'PUT':
           const reqBody = await bodyParser(req);
           reqBodyCheck(res, reqBody);
-          const updatedUser = usersController.updateUser(reqBody, potentialID);
-          res.statusCode = statusCodes.OK;
-          resBody = JSON.stringify(updatedUser);
+          try {
+            const updatedUser = usersController.updateUser(reqBody, potentialID);
+            res.statusCode = statusCodes.OK;
+            resBody = JSON.stringify(updatedUser);
+          } catch (e) {
+            res.statusCode = statusCodes.NOT_FOUND;
+            throw e;
+          }
           break;
         case 'DELETE':
-          usersController.deleteUser(potentialID);
-          res.statusCode = statusCodes.NO_CONTENT;
+          try {
+            usersController.deleteUser(potentialID);
+            res.statusCode = statusCodes.NO_CONTENT;
+          } catch (e) {
+            res.statusCode = statusCodes.NOT_FOUND;
+            throw e;
+          }
           break;
         default:
           res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
           throw Error(errors.ERR_NO_SUCH_OPERATION);
       }
     } else {
+      res.statusCode = statusCodes.NOT_FOUND;
       throw Error(errors.ERR_NOT_FOUND);
     }
-    if (process.send) process.send(usersController.allUsers);
+    if (process.send && process.env.MULTI) process.send(usersController.allUsers);
   } catch (error) {
     resBody = JSON.stringify(errorChecker(error));
   } finally {
-    reqToDb.end();
     res.end(resBody);
   }
 };
 
 export const server = createServer(requestListener);
-if (!process.env.MULTI) {
-  dbServer.listen(DB_PORT, () => {
-    console.log(`DB is running`);
-  });
+if (!process.env.MULTI && !process.env.TEST) {
+  dbServer.listen(DB_PORT);
   server.listen(PORT, () => {
     console.log(`Server is running on http://${HOST}:${PORT}`);
   });

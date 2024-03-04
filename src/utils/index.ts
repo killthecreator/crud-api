@@ -4,3 +4,4 @@ export * from './errorChecker';
 export * from './errors';
 export * from './statusCodes';
 export * from './reqBodyCheck';
+export * from './doRequest';

@@ -1,65 +1,61 @@
 import cluster from 'cluster';
-import { cpus } from 'os';
-import {
-  type IncomingMessage,
-  type ServerResponse,
-  type RequestOptions,
-  request,
-  createServer,
-} from 'http';
+import { availableParallelism } from 'os';
+import { type IncomingMessage, type ServerResponse, type RequestOptions, createServer } from 'http';
 import { server, HOST, PORT } from './server';
-import { bodyParser } from './utils';
 import { dbServer, DB_PORT, dbReqOptions } from './db';
-import { statusCodes } from './utils';
+import { doRequest, errorChecker, bodyParser, statusCodes } from './utils';
 
-const numCPUs = cpus().length;
+const numCPUs = availableParallelism();
 
-const serverPorts = new Array(numCPUs).fill(0).map((_item, index) => PORT + index + 1);
+const workerPorts = new Array(numCPUs - 1).fill(0).map((_item, index) => PORT + index + 1);
 
-let curServerPortIndex = 0;
+let curWorkerPortIndex = 0;
 
 const reqHandler = async (req: IncomingMessage, res: ServerResponse) => {
-  const { url, method, headers } = req;
-  const curServerPort = serverPorts[curServerPortIndex];
-  curServerPortIndex === serverPorts.length - 1 ? (curServerPortIndex = 0) : curServerPortIndex++;
+  const curWorkerPort = workerPorts[curWorkerPortIndex];
+  curWorkerPortIndex === workerPorts.length - 1 ? (curWorkerPortIndex = 0) : curWorkerPortIndex++;
+
+  const { url, method } = req;
   res.setHeader('Content-type', 'application/json');
+
   const options: RequestOptions = {
     hostname: HOST,
-    port: curServerPort,
+    port: curWorkerPort,
     path: url,
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
     method,
   };
 
-  const reqBody = await bodyParser(req);
-
-  const reqToWorker = request(options, async (resFromWorker: IncomingMessage) => {
-    const resBody = await bodyParser(resFromWorker);
-    res.statusCode = resFromWorker.statusCode ?? statusCodes.INTERNAL_SERVER_ERR;
-    res.end(JSON.stringify(resBody));
-  });
-
-  reqToWorker.write(JSON.stringify(reqBody));
-  reqToWorker.end();
+  let resBody: string | undefined = undefined;
+  try {
+    const reqBody = await bodyParser(req);
+    const responseFromWorker = await doRequest(options, reqBody);
+    const parsedResponse = await bodyParser(responseFromWorker);
+    if (responseFromWorker.statusCode) res.statusCode = responseFromWorker.statusCode;
+    resBody = JSON.stringify(parsedResponse);
+  } catch (error) {
+    res.statusCode = statusCodes.INTERNAL_SERVER_ERR;
+    resBody = JSON.stringify(errorChecker(error));
+  } finally {
+    res.end(resBody);
+  }
 };
 
 if (cluster.isPrimary) {
   console.log(`Primary ${process.pid} is running`);
 
-  dbServer.listen(DB_PORT, () => {
-    console.log(`DB is running`);
-  });
+  dbServer.listen(DB_PORT);
 
   createServer(reqHandler).listen(PORT, () => {
     console.log(`Load ballancer is running on http://${HOST}:${PORT}`);
   });
 
-  serverPorts.forEach((serverPort) => {
-    const child = cluster.fork({ PORT: serverPort });
-    child.on('message', (message) => {
-      const reqToDb = request(dbReqOptions('POST'));
-      reqToDb.write(JSON.stringify(message));
-      reqToDb.end();
+  workerPorts.forEach((workerPort) => {
+    const child = cluster.fork({ PORT: workerPort });
+    child.on('message', async (message) => {
+      await doRequest(dbReqOptions('POST'), message);
     });
   });
 

@@ -7,7 +7,7 @@
     "start:dev": " nodemon ./src/server.ts ",
     "start:prod": "tsc && node ./dist/src/server.js",
     "start:multi": "cross-env MULTI=true nodemon ./src",
-    "test": "node --test --require ts-node/register ./test/users.test.ts ./test/user.test.ts"
+    "test": "cross-env TEST=true node --test --require ts-node/register ./test/index.test.ts"
   },
   "repository": {
     "type": "git",
